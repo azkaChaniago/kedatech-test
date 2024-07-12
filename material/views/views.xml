@@ -16,6 +16,26 @@
             </field>
         </record>
 
+        <record model="ir.ui.view" id="material.form">
+            <field name="name">material form</field>
+            <field name="model">material.material</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="name" required="1" />
+                            <field name="code" required="1" />
+                            <field name="type" required="1" />
+                        </group>
+                        <group>
+                            <field name="buy_price" required="1" />
+                            <field name="supplier_id" required="1" />
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
 
         <!-- actions opening views on models -->
 
@@ -48,8 +68,8 @@
 
         <!-- menu categories -->
 
-        <menuitem name="Material" id="material.menu_material_window" parent="material.menu_root" action="material.action_window"/>
-        <menuitem name="Material List" id="material.menu_material_server" parent="material.menu_root" action="material.action_server"/>
+        <menuitem name="Material" id="material.menu_material_window" parent="material.menu_root" action="material.action_window" />
+        <menuitem name="Material List" id="material.menu_material_server" parent="material.menu_root" action="material.action_server" />
 
         <!-- actions -->
 
