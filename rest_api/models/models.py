@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-
 import hashlib
 import jwt
 import logging
@@ -190,7 +189,7 @@ class OauthAccessToken(models.Model):
         api_secret_id = self.user_id.api_secret_id
         client_id = refresh.get('client_id')
         client_secret = refresh.get('client_secret')
-        
+
         if api_key_id == client_id and api_secret_id == client_secret:
             expires = datetime.now()
             refresh = self.sudo().write({

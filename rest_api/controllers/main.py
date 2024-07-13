@@ -7,7 +7,19 @@ import odoo
 from odoo import http
 from odoo.exceptions import MissingError, AccessDenied
 from odoo.http import request
-from ..rest_exception import invalid_response, valid_response, invalid_token
+from odoo.addons.rest_api.utilities.exceptions import (
+    invalid_response,
+    valid_response,
+    invalid_token,
+    rest_api_unavailable,
+    modal_not_found,
+    invalid_object_id,
+    object_not_found,
+    object_not_found_all,
+    no_object_created,
+    no_object_updated,
+    no_object_deleted,
+)
 
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
@@ -17,49 +29,6 @@ if not DBNAME:
     _logger.warning("Warning: To proper setup OAuth - it's necessary to "
                     "set the parameter 'DBNAME' in odoo config file!")
     
-def rest_api_unavailable(modal_name):
-    _logger.error("Not found object(s) in odoo!")
-    return invalid_response(404, 'object_not_found_in_odoo',
-                            "Enable Rest API For " + modal_name + "!")
-
-def modal_not_found(modal_name):
-    _logger.error("Not found object(s) in odoo!")
-    return invalid_response(404, 'object_not_found_in_odoo',
-                            "Modal " + modal_name + " Not Found!")
-
-def invalid_object_id():
-    _logger.error("Invalid object 'id'!")
-    return invalid_response(400, 'invalid_object_id', "Invalid object 'id'!")
-
-def object_not_found(record_id, modal_name):
-    _logger.error("Not found object(s) in odoo!")
-    return invalid_response(404, 'object_not_found_in_odoo',
-                            "Record " + str(record_id) + " Not found in " + modal_name + "!")
-
-def object_not_found_all(modal_name):
-    _logger.error("Not found object(s) in odoo!")
-    return invalid_response(404, 'object_not_found_in_odoo',
-                            "No Record found in " + modal_name + "!")
-
-def no_object_created(odoo_error):
-    _logger.error("Not created object in odoo! ERROR: %s" % odoo_error)
-    return invalid_response(500, 'not_created_object_in_odoo',
-                          "Not created object in odoo! ERROR: %s" %
-                          odoo_error)
-
-def no_object_updated(odoo_error):
-    _logger.error("Not updated object in odoo! ERROR: %s" % odoo_error)
-    return invalid_response(500, 'not_updated_object_in_odoo',
-                          "Object Not Updated! ERROR: %s" %
-                          odoo_error)
-
-
-def no_object_deleted(odoo_error):
-    _logger.error("Not deleted object in odoo! ERROR: %s" % odoo_error)
-    return invalid_response(500, 'not_deleted_object_in_odoo',
-                          "Not deleted object in odoo! ERROR: %s" %
-                          odoo_error)
-
 def object_read_one(model_name, rec_id, params, status_code):
     fields = []
     if 'field' in params:
