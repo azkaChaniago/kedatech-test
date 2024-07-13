@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        
+        <record model="ir.module.category" id="module_category_hidden">
+            <field name="name">Material</field>
+            <field name="sequence">59</field>
+            <field name="visible" eval="0" />
+        </record>
+
+        
+
+    </data>
+</odoo>
