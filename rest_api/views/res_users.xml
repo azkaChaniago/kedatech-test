@@ -1,0 +1,29 @@
+<odoo>
+    <data>
+
+        <record id="view_users_form_inherit" model="ir.ui.view">
+            <field name="model">res.users</field>
+            <field name="inherit_id" ref="base.view_users_form" />
+            <field name="arch" type="xml">
+                <xpath expr="//notebook/page[@name='references']" position="after">
+                    <page string="Credentials" name="credentials">
+                        <group>
+                            <field name="client_id" string="Client ID"/>
+                            <field name="secret_id" string="Secret ID"/>
+                        </group>
+                        <group>
+                            <field name="token_ids">
+                                <tree create="false">
+                                    <field name="token" />
+                                    <field name="expires" />
+                                </tree>
+                            </field>
+                        </group>
+                    </page>
+
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>

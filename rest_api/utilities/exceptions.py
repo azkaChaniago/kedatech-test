@@ -6,7 +6,8 @@ import logging
 from odoo.http import request
 import werkzeug.wrappers
 
-from jsonresponse import JsonRequestPatch
+
+# from jsonresponse import JsonRequestPatch
 
 
 _logger = logging.getLogger(__name__)

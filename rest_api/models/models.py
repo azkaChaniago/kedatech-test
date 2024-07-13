@@ -32,6 +32,9 @@ class IrModel(models.Model):
 
 class Users(models.Model):
     _inherit = 'res.users'
+
+    client_id = fields.Char()
+    secret_id = fields.Char()
     token_ids = fields.One2many('oauth.access_token', 'user_id',
                                 string="Access Tokens")
 
@@ -50,7 +53,7 @@ class OauthAccessToken(models.Model):
         ('password', 'Password')
     ], default='bearer')
 
-    @api.multi
+    @api.model
     def _get_access_token(self, user_id=None, create=False):
         if not user_id:
             user_id = self.env.user.id
@@ -80,7 +83,7 @@ class OauthAccessToken(models.Model):
             return None
         return access_token.token
 
-    @api.multi
+    @api.model
     def _get_access_token_google(self, user_id=None, create=False):
         access_token = self.env['oauth.access_token'].sudo().search(
             [('user_id', '=', user_id)], order='id DESC', limit=1)
@@ -106,7 +109,7 @@ class OauthAccessToken(models.Model):
             return None
         return access_token.token
 
-    @api.multi
+    @api.model
     def is_valid(self, scopes=None):
         """
         Checks if the access token is valid.
@@ -116,12 +119,12 @@ class OauthAccessToken(models.Model):
         self.ensure_one()
         return not self.is_expired() and self._allow_scopes(scopes)
 
-    @api.multi
+    @api.model
     def is_expired(self):
         self.ensure_one()
         return datetime.now() > fields.Datetime.from_string(self.expires)
 
-    @api.multi
+    @api.model
     def _allow_scopes(self, scopes):
         self.ensure_one()
         if not scopes:
@@ -132,7 +135,7 @@ class OauthAccessToken(models.Model):
 
         return resource_scopes.issubset(provided_scopes)
 
-    @api.multi
+    @api.model
     def _generate_jwt(self, user_id, payload):
         
         oauth = self.env['oauth.access_token'].sudo().search([
@@ -143,10 +146,10 @@ class OauthAccessToken(models.Model):
             raise AccessDenied()
         
         user = oauth.user_id
-        if user.api_key_id != payload.get('client_id'):
+        if user.client_id != payload.get('client_id'):
             raise MissingError('client_id is not recognized!')
         
-        if user.api_secret_id != payload.get('client_secret'):
+        if user.secret_id != payload.get('client_secret'):
             raise MissingError('client_secret is not recognized!')
 
         payload.update({
@@ -167,7 +170,7 @@ class OauthAccessToken(models.Model):
 
         return vals
 
-    @api.multi
+    @api.model
     def _refresh_jwt(self):
         # TODO: should implement refresh token, therefore client could
         # TODO: retrieve token if the current request is less than refresh expired time
@@ -181,16 +184,16 @@ class OauthAccessToken(models.Model):
             _logger.warning(err.args[0])
             refresh = self._generate_jwt(self.user_id.id, {
                 'grant_type': self.grant_type,
-                'client_id': self.user_id.api_key_id,
-                'client_secret': self.user_id.api_secret_id
+                'client_id': self.user_id.client_id,
+                'client_secret': self.user_id.secret_id
             })
 
-        api_key_id = self.user_id.api_key_id
-        api_secret_id = self.user_id.api_secret_id
+        client_id = self.user_id.client_id
+        secret_id = self.user_id.secret_id
         client_id = refresh.get('client_id')
         client_secret = refresh.get('client_secret')
 
-        if api_key_id == client_id and api_secret_id == client_secret:
+        if client_id == client_id and secret_id == client_secret:
             expires = datetime.now()
             refresh = self.sudo().write({
                 'expires': expires.strftime(DEFAULT_SERVER_DATETIME_FORMAT)
