@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import ast
 import functools
 import logging
 
@@ -15,6 +16,142 @@ DBNAME = odoo.tools.config.get('db_name')
 if not DBNAME:
     _logger.warning("Warning: To proper setup OAuth - it's necessary to "
                     "set the parameter 'DBNAME' in flectra config file!")
+    
+def rest_api_unavailable(modal_name):
+    _logger.error("Not found object(s) in flectra!")
+    return invalid_response(404, 'object_not_found_in_flectra',
+                            "Enable Rest API For " + modal_name + "!")
+
+def modal_not_found(modal_name):
+    _logger.error("Not found object(s) in flectra!")
+    return invalid_response(404, 'object_not_found_in_flectra',
+                            "Modal " + modal_name + " Not Found!")
+
+def invalid_object_id():
+    _logger.error("Invalid object 'id'!")
+    return invalid_response(400, 'invalid_object_id', "Invalid object 'id'!")
+
+def object_not_found(record_id, modal_name):
+    _logger.error("Not found object(s) in flectra!")
+    return invalid_response(404, 'object_not_found_in_flectra',
+                            "Record " + str(record_id) + " Not found in " + modal_name + "!")
+
+def object_not_found_all(modal_name):
+    _logger.error("Not found object(s) in flectra!")
+    return invalid_response(404, 'object_not_found_in_flectra',
+                            "No Record found in " + modal_name + "!")
+
+def no_object_created(flectra_error):
+    _logger.error("Not created object in flectra! ERROR: %s" % flectra_error)
+    return invalid_response(500, 'not_created_object_in_flectra',
+                          "Not created object in flectra! ERROR: %s" %
+                          flectra_error)
+
+def no_object_updated(flectra_error):
+    _logger.error("Not updated object in flectra! ERROR: %s" % flectra_error)
+    return invalid_response(500, 'not_updated_object_in_flectra',
+                          "Object Not Updated! ERROR: %s" %
+                          flectra_error)
+
+
+def no_object_deleted(flectra_error):
+    _logger.error("Not deleted object in flectra! ERROR: %s" % flectra_error)
+    return invalid_response(500, 'not_deleted_object_in_flectra',
+                          "Not deleted object in flectra! ERROR: %s" %
+                          flectra_error)
+
+def object_read_one(model_name, rec_id, params, status_code):
+    fields = []
+    if 'field' in params:
+        fields += ast.literal_eval(params['field'])
+    try:
+        rec_id = int(rec_id)
+    except Exception as e:
+        rec_id = False
+
+    if not rec_id:
+        return invalid_object_id()
+    data = request.env[model_name].search_read(domain=[('id', '=', rec_id)], fields=fields)
+    if data:
+        return valid_response(status=status_code, data=data)
+    else:
+        return object_not_found(rec_id, model_name)
+    
+def object_read(model_name, params, status_code):
+    domain = []
+    fields = []
+    offset = 0
+    limit = None
+    order = None
+    if 'filters' in params:
+        domain += ast.literal_eval(params['filters'])
+    if 'field' in params:
+        fields += ast.literal_eval(params['field'])
+    if 'offset' in params:
+        offset = int(params['offset'])
+    if 'limit' in params:
+        limit = int(params['limit'])
+    if 'order' in params:
+        order = params['order']
+
+    data = request.env[model_name].search_read(domain=domain, fields=fields, offset=offset, limit=limit, order=order)
+    if data:
+        return valid_response(status=status_code, data={
+            'count': len(data),
+            'results': data
+        })
+    else:
+        return object_not_found_all(model_name)
+
+def object_create_one(model_name, data, status_code):
+    try:
+        res = request.env[model_name].create(data)
+    except Exception as e:
+        return no_object_created(e)
+    if res:
+        return valid_response(status_code, {'id': res.id})
+
+
+def object_update_one(model_name, rec_id, data, status_code):
+    try:
+        rec_id = int(rec_id)
+    except Exception as e:
+        rec_id = None
+
+    if not rec_id:
+        return invalid_object_id()
+
+    try:
+        res = request.env[model_name].search([('id', '=', rec_id)])
+        if res:
+            res.write(data)
+        else:
+            return object_not_found(rec_id, model_name)
+    except Exception as e:
+        return no_object_updated(e)
+    if res:
+        return valid_response(status_code, {'desc': 'Record Updated successfully!', 'update': True})
+
+
+def object_delete_one(model_name, rec_id, status_code):
+    try:
+        rec_id = int(rec_id)
+    except Exception as e:
+        rec_id = None
+
+    if not rec_id:
+        return invalid_object_id()
+
+    try:
+        res = request.env[model_name].search([('id', '=', rec_id)])
+        if res:
+            res.unlink()
+        else:
+            return object_not_found(rec_id, model_name)
+    except Exception as e:
+        return no_object_deleted(e)
+    if res:
+        return valid_response(status_code, {'desc': 'Record Successfully Deleted!', 'delete': True})
 
 def verify_token(func):
     @functools.wraps(func)
@@ -85,3 +222,36 @@ class JWTControllerREST(http.Controller):
             'access_token': oauth.get('token'),
             'expired_in': oauth.get('expires')
         })
+    
+    @http.route([
+        '/api/<model_name>',
+        '/api/<model_name>/<id>'
+    ], type='http', auth="none", methods=['POST', 'GET', 'PUT', 'DELETE'],
+        csrf=False)
+    @verify_token
+    def restapi_access_token(self, model_name=False, id=False, **post):
+        Model = request.env['ir.model']
+        Model_id = Model.sudo().search([('model', '=', model_name)], limit=1)
+
+        if Model_id:
+            if Model_id.rest_api:
+                return getattr(self, '%s_data' % (
+                    request.httprequest.method).lower())(
+                    model_name=model_name, id=id, **post)
+            else:
+                return rest_api_unavailable(model_name)
+        return modal_not_found(model_name)
+
+    def get_data(self, model_name=False, id=False, **get):
+        if id:
+            return object_read_one(model_name, id, get, status_code=200)
+        return object_read(model_name, get, status_code=200)
+
+    def put_data(self, model_name=False, id=False, **put):
+        return object_update_one(model_name, id, put, status_code=200)
+
+    def post_data(self, model_name=False, **post):
+        return object_create_one(model_name, post, status_code=200)
+
+    def delete_data(self, model_name=False, id=False):
+        return object_delete_one(model_name, id, status_code=200)
