@@ -8,7 +8,7 @@ class Material(models.Model):
     _name = 'material.material'
     _description = 'Material'
 
-    name = fields.Char()
+    name = fields.Char(default=lambda self: self.env['ir.sequence'].next_by_code('material.material'))
     code = fields.Char()
     type = fields.Selection([('fabric', 'Fabric'),
                              ('jeans', 'Jeans'),
