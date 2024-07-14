@@ -64,72 +64,6 @@ class OauthAccessToken(models.Model):
     ], default='bearer')
 
     @api.model
-    def _get_access_token(self, user_id=None, create=False):
-        if not user_id:
-            user_id = self.env.user.id
-
-        access_token = self.env['oauth.access_token'].sudo().search(
-            [('user_id', '=', user_id)], order='id DESC', limit=1)
-        if access_token:
-            access_token = access_token[0]
-            if access_token.is_expired():
-                if create == True:
-                    access_token = None
-        if not access_token and create:
-            expire_val = self.env.ref(
-                'rest_api.oauth2_access_token_expires_in').sudo().value
-            expires = datetime.now() + timedelta(seconds=int(expire_val))
-            vals = {
-                'user_id': user_id,
-                'scope': 'userinfo',
-                'expires': expires.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
-                'token': oauthlib_common.generate_token(),
-            }
-            access_token = self.env['oauth.access_token'].sudo().create(vals)
-            # we have to commit now, because /oauth2/tokeninfo could
-            # be called before we finish current transaction.
-            self._cr.commit()
-        if not access_token:
-            return None
-        return access_token.token
-
-    @api.model
-    def _get_access_token_google(self, user_id=None, create=False):
-        access_token = self.env['oauth.access_token'].sudo().search(
-            [('user_id', '=', user_id)], order='id DESC', limit=1)
-        if access_token:
-            access_token = access_token[0]
-            # if access_token.is_expired():
-            #     access_token = None
-        if not access_token and create:
-            expire_val = self.env.ref(
-                'rest_api.oauth2_access_token_expires_in').sudo().value
-            expires = datetime.now() + timedelta(seconds=int(expire_val))
-            vals = {
-                'user_id': user_id,
-                'scope': 'userinfo',
-                'expires': expires.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
-                'token': oauthlib_common.generate_token(),
-            }
-            access_token = self.env['oauth.access_token'].sudo().create(vals)
-            # we have to commit now, because /oauth2/tokeninfo could
-            # be called before we finish current transaction.
-            self._cr.commit()
-        if not access_token:
-            return None
-        return access_token.token
-
-    @api.model
-    def is_valid(self, scopes=None):
-        """
-        Checks if the access token is valid.
-
-        :param scopes: An iterable containing the scopes to check or None
-        """
-        self.ensure_one()
-        return not self.is_expired() and self._allow_scopes(scopes)
-
-    @api.model
     def is_expired(self):
         self.ensure_one()
         return datetime.now() > fields.Datetime.from_string(self.expires)
@@ -147,7 +81,7 @@ class OauthAccessToken(models.Model):
 
     @api.model
     def _generate_jwt(self, user_id, payload):
-        
+        now = payload.pop('now') if payload.get('now') else datetime.now()
         oauth = self.env['oauth.access_token'].sudo().search([
             ('user_id', '=', user_id),
             ('grant_type', '=', payload.get('grant_type'))
@@ -157,7 +91,7 @@ class OauthAccessToken(models.Model):
                 'user_id': user_id,
                 'grant_type': payload.get('grant_type'),
                 'token': hashlib.sha256().hexdigest(),
-                'expires': datetime.now(),
+                'expires': now,
             })
         
         user = oauth.user_id
@@ -174,7 +108,7 @@ class OauthAccessToken(models.Model):
             'client_secret': user.client_secret
         })
 
-        expires = datetime.now() + timedelta(seconds=1200)
+        expires = now + timedelta(seconds=1200)
         salt = hashlib.sha512(f'{user.login}{expires.isoformat()}'.encode('utf-8')).hexdigest()
         vals = {
             'token': jwt.encode(payload, salt, algorithm='HS256'),
@@ -188,10 +122,8 @@ class OauthAccessToken(models.Model):
 
     @api.model
     def _refresh_jwt(self):
-        # TODO: should implement refresh token, therefore client could
-        # TODO: retrieve token if the current request is less than refresh expired time
-
         refresh = False
+        now = datetime.now()
         salt = hashlib.sha512(self.user_id.login.encode('utf-8')).hexdigest()
         try:
             refresh = jwt.decode(self.token, salt, algorithm=['HS256'])
@@ -201,7 +133,8 @@ class OauthAccessToken(models.Model):
             refresh = self._generate_jwt(self.user_id.id, {
                 'grant_type': self.grant_type,
                 'client_id': self.user_id.client_id,
-                'client_secret': self.user_id.client_secret
+                'client_secret': self.user_id.client_secret,
+                'now': now
             })
 
         client_id = self.user_id.client_id
@@ -210,9 +143,8 @@ class OauthAccessToken(models.Model):
         client_secret = refresh.get('client_secret')
 
         if client_id == client_id and client_secret == client_secret:
-            expires = datetime.now()
             refresh = self.sudo().write({
-                'expires': expires.strftime(DEFAULT_SERVER_DATETIME_FORMAT)
+                'expires': now.strftime(DEFAULT_SERVER_DATETIME_FORMAT)
             })
 
         return refresh

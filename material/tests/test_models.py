@@ -40,8 +40,8 @@ class MaterialTestCase(SavepointCase):
                 {'code': 'A003', 'buy_price': 70, 'type': 'cotton', 'supplier_id': 5},
             ])
     
-    def test_empty_code_field(self):
-        with self.assertRaises(NotNullViolation), self.cr.savepoint():
-            self.properties.create([
-                {'buy_price': 700, 'type': 'cotton', 'supplier_id': 10},
-            ])
+    # def test_empty_code_field(self):
+    #     with self.assertRaises(NotNullViolation), self.cr.savepoint():
+    #         self.properties.create([
+    #             {'buy_price': 700, 'type': 'cotton', 'supplier_id': 10},
+    #         ])

@@ -3,6 +3,8 @@ import ast
 import functools
 import logging
 
+from datetime import datetime
+
 import odoo
 from odoo import http
 from odoo.exceptions import MissingError, AccessDenied
@@ -175,6 +177,7 @@ class JWTControllerREST(http.Controller):
 
         # verify body and user oauth credentials sends by client
         # generate tpken if body and user is verified
+        kwargs['now'] = datetime.now()
         try:
             oauth = request.env['oauth.access_token']._generate_jwt(uid, kwargs)
         
