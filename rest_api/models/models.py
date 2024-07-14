@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from jwt.exceptions import ExpiredSignatureError
 
 from odoo import api, fields, models, _
-from odoo.exceptions import MissingError, AccessDenied
+from odoo.exceptions import MissingError, UserError
 from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT
 
 _logger = logging.getLogger(__name__)
@@ -40,6 +40,9 @@ class Users(models.Model):
     
     def action_generate_credentials(self):
         now = datetime.now().isoformat()
+        if not self.login or not self.partner_id:
+            raise UserError("Login and Partner field should not be empty!")
+        
         client = f'{self.login}{now}'
         secret = f'{self.partner_id}{now}'
         self.client_id = hashlib.sha256(client.encode('utf-8')).hexdigest()
