@@ -34,9 +34,16 @@ class Users(models.Model):
     _inherit = 'res.users'
 
     client_id = fields.Char()
-    secret_id = fields.Char()
+    client_secret = fields.Char()
     token_ids = fields.One2many('oauth.access_token', 'user_id',
                                 string="Access Tokens")
+    
+    def action_generate_credentials(self):
+        now = datetime.now().isoformat()
+        client = f'{self.login}{now}'
+        secret = f'{self.partner_id}{now}'
+        self.client_id = hashlib.sha256(client.encode('utf-8')).hexdigest()
+        self.client_secret = hashlib.sha256(secret.encode('utf-8')).hexdigest()
 
 
 
@@ -143,23 +150,29 @@ class OauthAccessToken(models.Model):
             ('grant_type', '=', payload.get('grant_type'))
         ], order='id DESC', limit=1)
         if not oauth:
-            raise AccessDenied()
+            oauth = self.env['oauth.access_token'].sudo().create({
+                'user_id': user_id,
+                'grant_type': payload.get('grant_type'),
+                'token': hashlib.sha256().hexdigest(),
+                'expires': datetime.now(),
+            })
         
         user = oauth.user_id
         if user.client_id != payload.get('client_id'):
             raise MissingError('client_id is not recognized!')
         
-        if user.secret_id != payload.get('client_secret'):
+        if user.client_secret != payload.get('client_secret'):
             raise MissingError('client_secret is not recognized!')
 
         payload.update({
             'exp': timedelta(seconds=1200).seconds,
             'username': user.login,
-            'password': user.password_crypt
+            'client_id': user.client_id,
+            'client_secret': user.client_secret
         })
 
         expires = datetime.now() + timedelta(seconds=1200)
-        salt = hashlib.sha512('KuncH3nH0nd4K1t4P@ssw0rd%s' % expires.isoformat()).hexdigest()
+        salt = hashlib.sha512(f'{user.login}{expires.isoformat()}'.encode('utf-8')).hexdigest()
         vals = {
             'token': jwt.encode(payload, salt, algorithm='HS256'),
             'expires': expires,
@@ -176,7 +189,7 @@ class OauthAccessToken(models.Model):
         # TODO: retrieve token if the current request is less than refresh expired time
 
         refresh = False
-        salt = hashlib.sha512('KuChEnH0nd4k1t4P@ssw0rd').hexdigest()
+        salt = hashlib.sha512(self.user_id.login.encode('utf-8')).hexdigest()
         try:
             refresh = jwt.decode(self.token, salt, algorithm=['HS256'])
 
@@ -185,15 +198,15 @@ class OauthAccessToken(models.Model):
             refresh = self._generate_jwt(self.user_id.id, {
                 'grant_type': self.grant_type,
                 'client_id': self.user_id.client_id,
-                'client_secret': self.user_id.secret_id
+                'client_secret': self.user_id.client_secret
             })
 
         client_id = self.user_id.client_id
-        secret_id = self.user_id.secret_id
+        client_secret = self.user_id.client_secret
         client_id = refresh.get('client_id')
         client_secret = refresh.get('client_secret')
 
-        if client_id == client_id and secret_id == client_secret:
+        if client_id == client_id and client_secret == client_secret:
             expires = datetime.now()
             refresh = self.sudo().write({
                 'expires': expires.strftime(DEFAULT_SERVER_DATETIME_FORMAT)

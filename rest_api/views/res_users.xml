@@ -8,8 +8,11 @@
                 <xpath expr="//notebook/page[@name='references']" position="after">
                     <page string="Credentials" name="credentials">
                         <group>
-                            <field name="client_id" string="Client ID"/>
-                            <field name="secret_id" string="Secret ID"/>
+                            <button string="Generate Key" name="action_generate_credentials" type="object" class="oe_highlight"/>
+                        </group>
+                        <group>
+                            <field name="client_id" string="Client ID" readonly="1" />
+                            <field name="client_secret" string="Secret ID" readonly="1" />
                         </group>
                         <group>
                             <field name="token_ids">

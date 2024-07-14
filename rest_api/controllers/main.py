@@ -146,7 +146,6 @@ def verify_token(func):
 
         request.session.uid = access_token_data.user_id.id
         request.uid = access_token_data.user_id.id
-        request.branch_ids = access_token_data.user_id.branch_ids
         return func(self, *args, **kwargs)
 
     return wrap
@@ -180,12 +179,12 @@ class JWTControllerREST(http.Controller):
             oauth = request.env['oauth.access_token']._generate_jwt(uid, kwargs)
         
         except MissingError as err:
-            _logger.error(err.args)
-            return invalid_response(401, 'MissingError', err.args[1])
+            _logger.error(err.name)
+            return invalid_response(401, 'MissingError', err.name)
         
         except AccessDenied as err:
             _logger.error(err.args)
-            return invalid_response(400, err.args[0], 'User authentication is invalid!')
+            return invalid_response(400, err.args, 'User authentication is invalid!')
 
         return valid_response(200, {
             'access_token': oauth.get('token'),
@@ -193,8 +192,8 @@ class JWTControllerREST(http.Controller):
         })
     
     @http.route([
-        '/api/<model_name>',
-        '/api/<model_name>/<id>'
+        '/api/v1/<string:model_name>',
+        '/api/v1/<string:model_name>/<int:id>'
     ], type='http', auth="none", methods=['POST', 'GET', 'PUT', 'DELETE'],
         csrf=False)
     @verify_token
