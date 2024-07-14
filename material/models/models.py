@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from odoo import models, fields, api
-from odoo.exceptions import ValidationError
+from odoo.exceptions import ValidationError, UserError
 
 
 class Material(models.Model):
@@ -21,3 +21,11 @@ class Material(models.Model):
         for record in self:
             if record.buy_price < 100:
                 raise ValidationError("Buy Price value should not less than 100!")
+            
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get('code'):
+                raise UserError("Field code is empty!")
+            
+        return super().create(vals_list)

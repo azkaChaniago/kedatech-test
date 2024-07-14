@@ -4,7 +4,6 @@ from odoo.tests.common import SavepointCase
 from odoo.exceptions import ValidationError, UserError
 from odoo.tests import tagged
 
-from psycopg2.errors import NotNullViolation
 
 # The CI will run these tests after all the modules are installed,
 # not right after installing the one defining it.
@@ -40,8 +39,8 @@ class MaterialTestCase(SavepointCase):
                 {'code': 'A003', 'buy_price': 70, 'type': 'cotton', 'supplier_id': 5},
             ])
     
-    # def test_empty_code_field(self):
-    #     with self.assertRaises(NotNullViolation), self.cr.savepoint():
-    #         self.properties.create([
-    #             {'buy_price': 700, 'type': 'cotton', 'supplier_id': 10},
-    #         ])
+    def test_empty_code_field(self):
+        with self.assertRaises(UserError), self.cr.savepoint():
+            self.properties.create([
+                {'buy_price': 700, 'type': 'cotton', 'supplier_id': 10},
+            ])
